@@ -6,8 +6,6 @@
 #include <iostream>
 #include <tuple>
 #include <string>
-#include <fstream>
-#include <sstream>
 #include <iostream>
 #include <array>
 #include <vector>
@@ -15,12 +13,6 @@
 #include <math.h>
 #include <utility>
 #include <algorithm>
-#include <boost/hana/tuple.hpp>
-#include <boost/hana/zip.hpp>
-#include <boost/hana/for_each.hpp>
-#include <boost/hana/ext/std/tuple.hpp>
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/xml_parser.hpp>
 #include <algorithm>
 #include "program.hpp"
 #include "glfft.hpp"
