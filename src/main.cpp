@@ -23,6 +23,7 @@
 #include <boost/property_tree/xml_parser.hpp>
 #include <algorithm>
 #include "program.hpp"
+#include "glfft.hpp"
 
 void GLAPIENTRY msgCallback(GLenum source, GLenum type, GLuint id, GLenum severity, GLsizei length, const GLchar* message, const void* userParam )
 {
@@ -64,196 +65,135 @@ struct screenQuad
   }
 };
 
-class glfft
-{
-  using fftType = decltype(
-    GLDSEL::make_program_from_paths(
-        boost::hana::make_tuple("", ""),
-        glDselUniform("len", int)
-    )
-  );
-
-  fftType fft_;
-  GLuint input_;
-  GLuint locks_;
-public:
-  ~glfft()
-  {
-    glDeleteTextures(1, &input_);
-    glDeleteTextures(1, &locks_);
-  }
-
-  glfft() :
-    fft_(
-      GLDSEL::make_program_from_paths(
-        boost::hana::make_tuple(boost::none,boost::none,boost::none,boost::none,boost::none, "../src/fft/main.cs"),
-        glDselUniform("len", int)
-      )
-    ),
-    input_(0),
-    locks_(0)
-  {
-    glGenTextures(1, &input_);
-    glBindTexture(GL_TEXTURE_1D, input_);
-    //glTexImage1D(GL_TEXTURE_1D, 0, GL_RG32F, 1, 0, GL_RG, GL_FLOAT, nullptr);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-
-    glGenTextures(1, &locks_);
-    glBindTexture(GL_TEXTURE_1D, locks_);
-    //glTexImage1D(GL_TEXTURE_1D, 0, GL_R32I, 1, 0, GL_RED_INTEGER, GL_INT, nullptr);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_1D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-  }
-
-  auto operator()(const std::vector<glm::vec2> &data)
-  {
-    std::vector<int> initial(data.size(), -1);
-    std::fill(initial.begin(), initial.end(), -1);
-
-
-
-    glBindTexture(GL_TEXTURE_1D, input_);
-    glTexImage1D(GL_TEXTURE_1D, 0, GL_RG32F, data.size(), 0, GL_RG, GL_FLOAT, data.data());
-
-    glBindTexture(GL_TEXTURE_1D, locks_);
-    glTexImage1D(GL_TEXTURE_1D, 0, GL_R32I, initial.size(), 0, GL_RED_INTEGER, GL_INT, initial.data()); // initialize to -1
-
-    glMemoryBarrier(GL_ALL_BARRIER_BITS);
-
-    glBindImageTexture(0, input_, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RG32F);
-    glBindImageTexture(1, locks_, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32I);
-
-  //  std::cout << initial.size() << '\n';
-
-    fft_.setUniforms(
-      glDselArgument("len", int(data.size()))
-    );
-
-    glDispatchCompute(data.size(), 1, 1);
-
-    glBindTexture(GL_TEXTURE_1D, input_); // bind output
-  }
-};
-
 int main()
 {
-  glfwSetErrorCallback([](auto err, const auto* desc){ std::cout << "Error: " << desc << '\n'; });
-
-  // glfw init
-  if(!glfwInit())
+  try
   {
-    std::cout << "glfw failed to initialize\n";
-    std::exit(1);
-  }
+    glfwSetErrorCallback([](auto err, const auto* desc){ std::cout << "Error: " << desc << '\n'; });
 
-  // context init
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
-  glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-  auto window = glfwCreateWindow(640, 480, "GLFFT", NULL, NULL);
-  if (!window)
-  {
-    std::cout << "window/glcontext failed to initialize\n";
-    std::exit(1);
-  }
+    // glfw init
+    if(!glfwInit())
+    {
+      throw std::runtime_error(
+        "GLFW failed to initialize"
+      );
+    }
 
-  glfwMakeContextCurrent(window);
+    // context init
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
+    auto window = glfwCreateWindow(640, 480, "GLFFT", NULL, NULL);
+    if (!window)
+    {
+      throw std::runtime_error(
+        "GLFW window creation failed"
+      );
+    }
 
-  // glew init
-  auto err = glewInit();
-  if(GLEW_OK != err)
-  {
-    std::cout << "glew failed to init: " << glewGetErrorString(err) << '\n';
-    std::exit(1);
-  }
+    glfwMakeContextCurrent(window);
 
-  // gl init
-  glEnable(GL_DEBUG_OUTPUT);
-  glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-  glPointSize(15.5f);
-  glEnable(GL_BLEND);
-  glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-  glDebugMessageCallback(msgCallback, 0);
-  glEnable(GL_DEPTH_TEST);
+    // glew init
+    auto err = glewInit();
+    if(GLEW_OK != err)
+    {
+      //std::cout << "glew failed to init: " << glewGetErrorString(err) << '\n';
+      throw std::runtime_error(
+        std::string("GLEW initialization failed with error: ") + std::string((const char*)(glewGetErrorString(err)))
+      );
+    }
+
+    // gl init
+    glEnable(GL_DEBUG_OUTPUT);
+    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+    glPointSize(15.5f);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    glDebugMessageCallback(msgCallback, 0);
+    glEnable(GL_DEPTH_TEST);
 
 
 
-  // program initialization
+    // program initialization
 
 
-  int width, height;
-  double time = glfwGetTime();
-  glm::mat4 proj;
-  double tdelta;
-  double temp;
+    int width, height;
+    double time = glfwGetTime();
+    glm::mat4 proj;
+    double tdelta;
+    double temp;
 
-  //glfwSetWindowUserPointer(window, &fsim);
+    //glfwSetWindowUserPointer(window, &fsim);
 
-   glfwSetKeyCallback(window, [](auto *window, auto key, auto, auto action, auto mods){
-     //auto fsimptr = static_cast<>(glfwGetWindowUserPointer(window));
+     glfwSetKeyCallback(window, [](auto *window, auto key, auto, auto action, auto mods){
+       //auto fsimptr = static_cast<>(glfwGetWindowUserPointer(window));
 
-     if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-       glfwSetWindowShouldClose(window, GLFW_TRUE);
-     if(key == GLFW_KEY_F4)
-     { /* later */ }
-   });
+       if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
+         glfwSetWindowShouldClose(window, GLFW_TRUE);
+       if(key == GLFW_KEY_F4)
+       { /* later */ }
+     });
 
-   auto draw = GLDSEL::make_program_from_paths(
-    boost::hana::make_tuple("../src/main/vertex.vs", "../src/main/fragment.fs"),
-    glDselUniform("time", float),
-    glDselUniform("model", glm::mat4),
-    glDselUniform("view", glm::mat4),
-    glDselUniform("proj", glm::mat4)
-  );
-
-   screenQuad quad{};
-   glfft fftcontext;
-
-   std::vector<glm::vec2> inputs{
-     glm::vec2(0,0),
-     glm::vec2(0,0),
-     glm::vec2(1,0),
-     glm::vec2(0,0),
-     glm::vec2(0,0),
-     glm::vec2(0,0),
-     glm::vec2(0,0),
-     glm::vec2(0,0)
-   };
-
-   GLuint tex;
-   glGenTextures(1, &tex);
-   glBindTexture(GL_TEXTURE_1D, tex);
-   glTexImage1D(GL_TEXTURE_1D, 0, GL_R32F, initial.size(), 0, GL_RED, GL_FLOAT, inputs.data()); // initialize to -1
-
-   fftcontext(tex);
-
-   glBindTexture(GL_TEXTURE_1D, tex);
-
-   glfwSwapInterval(1);
-   while(!glfwWindowShouldClose(window))
-   {
-    auto oldT = time;
-    time = glfwGetTime();
-
-    glfwGetFramebufferSize(window, &width, &height);
-    glViewport(0, 0, width, height);
-    proj = glm::perspective(1.57f, float(width)/float(height), 0.1f, 7000.0f);
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-
-    //draw(proj, view, glm::mat4(), glfwGetTime(), plane);
-    draw.setUniforms( // set uniforms
-      glDselArgument("model", glm::mat4()),
-      glDselArgument("view", glm::mat4()),
-      glDselArgument("proj", proj),
-      glDselArgument("time", float(glfwGetTime()))
+     auto draw = GLDSEL::make_program_from_paths(
+      boost::hana::make_tuple("../src/main/vertex.vs", "../src/main/fragment.fs"),
+      glDselUniform("time", float),
+      glDselUniform("model", glm::mat4),
+      glDselUniform("view", glm::mat4),
+      glDselUniform("proj", glm::mat4)
     );
 
-    glBindVertexArray(quad.vao);
+     screenQuad quad{};
+     glfft fftcontext;
 
-    glDrawArrays(GL_TRIANGLES, 0, 6); // draw quad
+     std::vector<glm::vec2> inputs{
+       glm::vec2(0,0),
+       glm::vec2(0,0),
+       glm::vec2(1,0),
+       glm::vec2(0,0),
+       glm::vec2(0,0),
+       glm::vec2(0,0),
+       glm::vec2(0,0),
+       glm::vec2(0,0)
+     };
 
-    glfwSwapBuffers(window);
-    glfwPollEvents();
+     GLuint tex;
+     glGenTextures(1, &tex);
+     glBindTexture(GL_TEXTURE_1D, tex);
+     glTexImage1D(GL_TEXTURE_1D, 0, GL_R32F, initial.size(), 0, GL_RED, GL_FLOAT, inputs.data()); // initialize to -1
+
+     fftcontext(tex);
+
+     glBindTexture(GL_TEXTURE_1D, tex);
+
+     glfwSwapInterval(1);
+     while(!glfwWindowShouldClose(window))
+     {
+      auto oldT = time;
+      time = glfwGetTime();
+
+      glfwGetFramebufferSize(window, &width, &height);
+      glViewport(0, 0, width, height);
+      proj = glm::perspective(1.57f, float(width)/float(height), 0.1f, 7000.0f);
+      glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+      //draw(proj, view, glm::mat4(), glfwGetTime(), plane);
+      draw.setUniforms( // set uniforms
+        glDselArgument("model", glm::mat4()),
+        glDselArgument("view", glm::mat4()),
+        glDselArgument("proj", proj),
+        glDselArgument("time", float(glfwGetTime()))
+      );
+
+      glBindVertexArray(quad.vao);
+
+      glDrawArrays(GL_TRIANGLES, 0, 6); // draw quad
+
+      glfwSwapBuffers(window);
+      glfwPollEvents();
+    }
+  }
+  catch(std::exception &e)
+  {
+    std::cout << "main failed with " << e.what() << '\n';
   }
 
   glfwTerminate();
