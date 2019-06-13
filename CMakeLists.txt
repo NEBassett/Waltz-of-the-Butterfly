@@ -5,7 +5,7 @@ find_package(GLEW REQUIRED)
 find_package(OpenGL REQUIRED)
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${PROJECT_SOURCE_DIR}/bin")
-add_executable (glfft "${PROJECT_SOURCE_DIR}/src/main.cpp")
+add_executable (glfft "${PROJECT_SOURCE_DIR}/src/main.cpp" "${PROJECT_SOURCE_DIR}/src/glfft.cpp")
 set_property(TARGET glfft PROPERTY CXX_STANDARD 17)
 set_source_files_properties( "${PROJECT_SOURCE_DIR}/src/main.cpp" PROPERTIES COMPILE_FLAGS "-g -DGLEW_STATIC -O3" )
 

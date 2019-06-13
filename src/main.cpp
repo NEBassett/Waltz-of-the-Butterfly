@@ -150,7 +150,7 @@ int main()
   // context init
   glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 2);
   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 0);
-  auto window = glfwCreateWindow(640, 480, "Lattice Boltzmann Methods", NULL, NULL);
+  auto window = glfwCreateWindow(640, 480, "GLFFT", NULL, NULL);
   if (!window)
   {
     std::cout << "window/glcontext failed to initialize\n";
@@ -219,7 +219,15 @@ int main()
      glm::vec2(0,0),
      glm::vec2(0,0)
    };
-   fftcontext(inputs);
+
+   GLuint tex;
+   glGenTextures(1, &tex);
+   glBindTexture(GL_TEXTURE_1D, tex);
+   glTexImage1D(GL_TEXTURE_1D, 0, GL_R32F, initial.size(), 0, GL_RED, GL_FLOAT, inputs.data()); // initialize to -1
+
+   fftcontext(tex);
+
+   glBindTexture(GL_TEXTURE_1D, tex);
 
    glfwSwapInterval(1);
    while(!glfwWindowShouldClose(window))
