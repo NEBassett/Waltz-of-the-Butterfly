@@ -32,12 +32,9 @@ glfft::glfft() :
 void glfft::operator()(int dim, GLuint input)
 {
   std::vector<int> initial(dim, -1);
-  std::fill(initial.begin(), initial.end(), -1);
 
   glBindTexture(GL_TEXTURE_1D, locks_);
   glTexImage1D(GL_TEXTURE_1D, 0, GL_R32I, initial.size(), 0, GL_RED_INTEGER, GL_INT, initial.data()); // initialize to -1
-
-  glMemoryBarrier(GL_ALL_BARRIER_BITS);
 
   glBindImageTexture(0, input, 0, GL_TRUE, 0, GL_READ_WRITE, GL_RG32F);
   glBindImageTexture(1, locks_, 0, GL_TRUE, 0, GL_READ_WRITE, GL_R32I);
